@@ -56,7 +56,7 @@ In addition to the synthetic Rosenbrock test case, this project implements a phy
 
 ### Plots:
 #### Runtime Comparison
-![PDE Runtime Comparison](pde_python_vs_c.png)
+<img src="pde_python_vs_c.png" width="500" />
 
 ---
 
