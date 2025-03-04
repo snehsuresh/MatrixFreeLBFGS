@@ -1,45 +1,35 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 #include "optimizer.h"
 #include "objective.h"
 
-#define DIMENSION 1000
+#define DIMENSION 100  // Must be even for Rosenbrock
 
 int main() {
-    // Seed random number generator.
-    srand(42);
-    init_sparse_mask(DIMENSION, 0.1);
-    // Allocate initial guess x.
-    double *x = (double *)malloc(DIMENSION * sizeof(double));
-    // Initialize x to zeros.
-    for (size_t i = 0; i < DIMENSION; i++) {
-        x[i] = 0.0;
+    double x[DIMENSION];
+
+    // Initialize starting point: typical for Rosenbrock is (-1.2, 1.0, -1.2, 1.0, ...)
+    for (size_t i = 0; i < DIMENSION; i += 2) {
+        x[i] = -1.2;
+        x[i + 1] = 1.0;
     }
 
-    // Initialize sparse mask with 10% active entries.
- 
+    // For full gradients, we call init_sparse_mask with sparsity = 1.0.
+    init_sparse_mask(DIMENSION, 1.0);
 
-    // Set L-BFGS parameters.
     LBFGSParams params;
-    params.m = 10;
-    params.max_iter = 100;
-    params.tol = 1e-6;
-    params.alpha_init = 1.0;
-    params.c1 = 1e-4;
-    params.tau = 0.5;
-    params.checkpoint_freq = 10;
+    params.max_iterations = 100;
+    params.epsilon = 1e-6;
+    params.history_size = 10;
 
-    printf("Starting L-BFGS optimization on a sparse quadratic objective...\n");
+    printf("Starting L-BFGS optimization on the Rosenbrock function...\n");
+    size_t iterations = lbfgs_optimize(x, DIMENSION, objective_function, params);
+    printf("Optimization finished in %zu iterations.\n", iterations);
 
-    size_t iters = lbfgs_optimize(x, DIMENSION, objective_function, params);
-    printf("Optimization finished in %zu iterations.\n", iters);
     printf("Final solution (first 10 elements):\n");
     for (size_t i = 0; i < 10; i++) {
-        printf("%.6f ", x[i]);
+        printf("%.5f ", x[i]);
     }
     printf("\n");
 
-    free(x);
     return 0;
 }

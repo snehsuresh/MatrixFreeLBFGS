@@ -3,27 +3,22 @@
 
 #include <stddef.h>
 
-// Function pointer type for objective function and gradient evaluation.
-// Given input x of length n, compute f(x) and gradient in grad (array of length n).
+// Function pointer type for objective evaluation.
+// Given input x (array of length n), compute objective and gradient (array of length n).
 typedef double (*ObjectiveFunc)(const double *x, double *grad, size_t n);
 
-// L-BFGS optimizer parameters structure.
+// LBFGS parameters structure.
 typedef struct {
-    size_t m;             // Maximum number of corrections (history size)
-    size_t max_iter;      // Maximum number of iterations
-    double tol;           // Tolerance for convergence (gradient norm)
-    double alpha_init;    // Initial step size for line search
-    double c1;            // Armijo condition constant
-    double tau;           // Backtracking line search reduction factor
-    size_t checkpoint_freq; // Frequency (in iterations) for checkpointing
+    size_t max_iterations;  // Maximum iterations
+    double epsilon;         // Convergence tolerance on gradient norm
+    size_t history_size;    // Memory for L-BFGS (number of stored updates)
 } LBFGSParams;
 
-// Main optimization function.
-// Inputs:
-//   x: initial guess (also used to return optimized solution)
-//   n: dimension of the problem
-//   obj: objective function pointer
-//   params: L-BFGS parameters
+// Main L-BFGS optimizer function.
+// x: input initial guess (also returns the optimized solution)
+// n: problem dimension
+// obj: pointer to objective function (which computes both f and grad)
+// params: LBFGS parameters
 // Returns the number of iterations performed.
 size_t lbfgs_optimize(double *x, size_t n, ObjectiveFunc obj, LBFGSParams params);
 

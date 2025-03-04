@@ -1,23 +1,14 @@
 CC = clang
-CFLAGS = -O2 -std=c99 -Wall
+CFLAGS = -O3 -std=c99 -Wall -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
+LDFLAGS = -L/opt/homebrew/opt/libomp/lib -lomp
 
-# Explicitly specify libomp location (manual override)
-CFLAGS += -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
-LDFLAGS += -L/opt/homebrew/opt/libomp/lib -lomp
+all: lbfgs_optimizer
 
-SRC = src/main.c src/optimizer.c src/objective.c
-OBJ = $(SRC:.c=.o)
-TARGET = lbfgs_optimizer
+lbfgs_optimizer: src/main.o src/optimizer.o src/objective.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-all: $(TARGET)
-
-$(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ) $(LDFLAGS)
-
-%.o: %.c
+src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) $(TARGET)
-
-.PHONY: all clean
+	rm -f src/*.o lbfgs_optimizer
