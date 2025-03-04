@@ -1,17 +1,20 @@
+## Matrix-Free L-BFGS Optimization in C
 
-Project: Matrix-Free L-BFGS Optimization in C
+### Overview:
+This project implements a matrix-free L-BFGS optimization algorithm in C, specifically optimized for the 1000-dimensional Rosenbrock function. It also extends to a physically realistic heat diffusion PDE solver for demonstrating the real-world advantage of C over Python for large-scale numerical simulations.
 
-Overview:
-This project implements a matrix-free L-BFGS optimization algorithm in C, specifically optimized for the 1000-dimensional Rosenbrock function.
+---
 
-Key Features:
+## Section 1 (-b main): High-dimensional Rosenbrock Optimization
+
+### Key Features:
 - Matrix-free L-BFGS implementation.
 - Objective function: High-dimensional Rosenbrock.
 - Fully parallelized gradient computation using OpenMP. 
 - Supports flexible convergence criteria.
 - Lightweight design: No external libraries required (other than OpenMP).
 
-Performance Benchmark:
+### Performance Benchmark:
 - Compared against SciPy's L-BFGS-B implementation.
 - Test case: 1000-dimensional Rosenbrock function.
 - Results:
@@ -19,59 +22,90 @@ Performance Benchmark:
     - SciPy Implementation: 0.0101 seconds
 - Speedup: ~32x faster than Python baseline.
 
-Convergence Plots:
-### C Implementation Convergence
-![C L-BFGS Convergence](c_lbfgs_convergence.png)
+### Convergence Plots:
+#### C L-BFGS Convergence
+<img src="c_lbfgs_convergence.png" width="400" />
 
-### SciPy Implementation Convergence
-![SciPy L-BFGS Convergence](python_lbfgs_convergence.png)
+#### SciPy L-BFGS Convergence
+<img src="python_lbfgs_convergence.png" width="400" />
 
 These plots demonstrate the objective function reduction over iterations for both implementations.
 
-Directory Structure:
+---
+
+## Section 2 (-b develop): Heat Diffusion PDE Solver
+
+### Overview:
+In addition to the synthetic Rosenbrock test case, this project implements a physically realistic **2D Heat Diffusion PDE Solver** using an explicit finite difference scheme. This is a classic example from computational physics, where performance bottlenecks in Python become serious at large grid sizes.
+
+### Problem Setup:
+- Solving: ∂T/∂t = α (∂²T/∂x² + ∂²T/∂y²)
+- Grid size: 512 x 512
+- Time steps: 5000 per simulation
+- Number of independent simulations: 100
+
+---
+
+### Performance Benchmark:
+- Python implementation (NumPy + loops):
+    - Time: **~3 hours** (11252 seconds) for 10 simulations.
+- C implementation (OpenMP parallel loops):
+    - Time: **~104 seconds** for 100 simulations.
+- Effective speedup: ~**105x faster than Python**.
+
+### Plots:
+#### Runtime Comparison
+![PDE Runtime Comparison](pde_runtime_comparison.png)
+
+---
+
+### Directory Structure:
 - src/
-    - main.c          # Entry point and driver
+    - main.c          # Entry point for L-BFGS optimization
     - optimizer.c     # L-BFGS implementation
-    - objective.c     # Rosenbrock objective and gradient computation
-    - optimizer.h     # Header for L-BFGS API
-    - objective.h     # Header for objective function API
+    - objective.c     # Rosenbrock objective and gradient
+    - pde_main.c      # Entry point for PDE solver
+    - pde_solver.c    # Heat diffusion solver (finite difference)
+    - optimizer.h     # Header for L-BFGS
+    - objective.h     # Header for Rosenbrock
+    - pde_solver.h    # Header for PDE solver
 - Makefile            # Build automation
 
-How to Build and Run:
-1. Clean previous builds:
-    make clean
+---
 
-2. Compile and link:
-    make
+### How to Build and Run:
 
-3. Run the optimizer:
-    ./lbfgs_optimizer
+#### 1. L-BFGS Optimizer (Rosenbrock)
+```bash
+make clean
+make lbfgs
+./lbfgs_optimizer
+```
 
-4. Example output:
-    Starting L-BFGS optimization on the Rosenbrock function...
-    [DEBUG] Initial f = 1210.0000000000, ||grad|| = 1.6466232113e+03
-    ...
-    Optimization finished in 39 iterations.
-    Final solution (first 10 elements): 1.00000 1.00000 ...
+#### 2. Heat Diffusion PDE Solver
+```bash
+make clean
+make pde
+./pde_optimizer
+```
 
-5. Time measurement:
-    Execution time is printed directly to the terminal.
+---
 
-Comparisons with SciPy (Python):
-- Benchmark script: benchmark.py (separate Python file - not part of this repo)
-- Compare runtime with SciPy’s L-BFGS-B on the same problem.
-- Example result:
-    SciPy L-BFGS-B finished in 0.0101 seconds, f = 0.000000
-    C L-BFGS Optimization finished in 0.000316 seconds.
-
-System Requirements:
+### System Requirements:
 - macOS (tested on Apple Silicon - M2)
 - clang with OpenMP support
 - Make utility
+- Python 3.x (for benchmarking & plotting)
 
-Technical Highlights:
+---
+
+### Technical Highlights:
 - Matrix-free formulation avoids explicit inverse Hessian storage.
-- OpenMP parallelism for gradient computation.
+- OpenMP parallelism for gradient computation and PDE updates.
 - Minimal overhead through low-level memory management.
-- Direct replacement for Python-based L-BFGS where performance matters.
+- Demonstrates how to embed C into performance-critical sections of scientific Python pipelines.
 
+---
+
+### Final Takeaway:
+This project is a clear example of how to **offload computational bottlenecks to C while keeping the rest of the pipeline in Python**. This is ideal for researchers, data scientists, and engineers who want **scientific computing without the performance compromises of Python alone**.
