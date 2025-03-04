@@ -1,4 +1,3 @@
-
 Project: Matrix-Free L-BFGS Optimization in C
 
 Overview:
@@ -7,7 +6,7 @@ This project implements a matrix-free L-BFGS optimization algorithm in C, specif
 Key Features:
 - Matrix-free L-BFGS implementation.
 - Objective function: High-dimensional Rosenbrock.
-- Fully parallelized gradient computation using OpenMP. 
+- Fully parallelized gradient computation using OpenMP.
 - Supports flexible convergence criteria.
 - Lightweight design: No external libraries required (other than OpenMP).
 
@@ -19,6 +18,15 @@ Performance Benchmark:
     - SciPy Implementation: 0.0101 seconds
 - Speedup: ~32x faster than Python baseline.
 
+Convergence Plots:
+### C Implementation Convergence
+![C L-BFGS Convergence](c_lbfgs_convergence.png)
+
+### SciPy Implementation Convergence
+![SciPy L-BFGS Convergence](python_lbfgs_convergence.png)
+
+These plots demonstrate the objective function reduction over iterations for both implementations.
+
 Directory Structure:
 - src/
     - main.c          # Entry point and driver
@@ -27,6 +35,8 @@ Directory Structure:
     - optimizer.h     # Header for L-BFGS API
     - objective.h     # Header for objective function API
 - Makefile            # Build automation
+- plot_lbfgs_c.py      # Plot convergence from C output
+- benchmark.py         # Run SciPy L-BFGS-B for comparison
 
 How to Build and Run:
 1. Clean previous builds:
@@ -59,6 +69,7 @@ System Requirements:
 - macOS (tested on Apple Silicon - M2)
 - clang with OpenMP support
 - Make utility
+- Python (for plotting)
 
 Technical Highlights:
 - Matrix-free formulation avoids explicit inverse Hessian storage.

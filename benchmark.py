@@ -62,7 +62,8 @@ def main():
     plt.ylabel("Objective value")
     plt.title("SciPy L-BFGS-B Convergence on Rosenbrock")
     plt.grid(True)
-    plt.show()
+    # plt.show()
+    plt.savefig("python_lbfgs_convergence.png", dpi=300)
 
 
 if __name__ == "__main__":
