@@ -1,178 +1,168 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include "optimizer.h"
 #include "objective.h"
 
-// Helper: Compute Euclidean norm of vector v of length n.
-double vector_norm(const double *v, size_t n) {
+typedef struct {
+    double *s;  // Difference in x (x_{k+1} - x_k)
+    double *y;  // Difference in gradient (grad_{k+1} - grad_k)
+    double rho; // 1.0 / (y^T s)
+} LBFGS_Update;
+
+// Helper: Compute dot product of vectors a and b of length n.
+static double dot_product(const double *a, const double *b, size_t n) {
     double sum = 0.0;
     for (size_t i = 0; i < n; i++) {
-        sum += v[i] * v[i];
+        sum += a[i] * b[i];
     }
-    return sqrt(sum);
+    return sum;
 }
 
-// Helper: Copy vector src to dest.
-void vector_copy(const double *src, double *dest, size_t n) {
-    for (size_t i = 0; i < n; i++) {
-        dest[i] = src[i];
-    }
-}
-
-// Helper: Compute result = x + alpha * d.
-void vector_add_scaled(double *result, const double *x, double alpha, const double *d, size_t n) {
-    for (size_t i = 0; i < n; i++) {
-        result[i] = x[i] + alpha * d[i];
-    }
+// Helper: Copy vector from src to dst.
+static void copy_vector(const double *src, double *dst, size_t n) {
+    memcpy(dst, src, n * sizeof(double));
 }
 
 size_t lbfgs_optimize(double *x, size_t n, ObjectiveFunc obj, LBFGSParams params) {
     size_t max_iter = params.max_iterations;
-    double epsilon = params.epsilon;
+    double tol = params.tolerance;
     size_t m = params.history_size;
+    double c1 = params.c1;
+    double tau = params.tau;
 
-    // Allocate arrays for current gradient and for previous x and gradient (for history)
     double *grad = (double *)malloc(n * sizeof(double));
-    double *prev_x = (double *)malloc(n * sizeof(double));
-    double *prev_grad = (double *)malloc(n * sizeof(double));
+    double *grad_prev = (double *)malloc(n * sizeof(double));
+    double *x_prev = (double *)malloc(n * sizeof(double));
 
-    // Allocate history arrays (s and y updates) and scaling factors rho.
-    double **s_history = (double **)malloc(m * sizeof(double *));
-    double **y_history = (double **)malloc(m * sizeof(double *));
-    double *rho = (double *)malloc(m * sizeof(double));
-    for (size_t i = 0; i < m; i++) {
-        s_history[i] = (double *)malloc(n * sizeof(double));
-        y_history[i] = (double *)malloc(n * sizeof(double));
-    }
-
-    // Evaluate the objective and gradient at the initial guess.
     double f = obj(x, grad, n);
-    double grad_norm = vector_norm(grad, n);
+    double grad_norm = sqrt(dot_product(grad, grad, n));
     printf("[DEBUG] Initial f = %.10f, ||grad|| = %.10e\n", f, grad_norm);
 
-    int k = 0;
-    int history_count = 0;
+    // Allocate history storage for LBFGS updates.
+    LBFGS_Update *updates = (LBFGS_Update *)malloc(m * sizeof(LBFGS_Update));
+    for (size_t i = 0; i < m; i++) {
+        updates[i].s = (double *)malloc(n * sizeof(double));
+        updates[i].y = (double *)malloc(n * sizeof(double));
+        updates[i].rho = 0.0;
+    }
+    size_t history_count = 0; // total updates stored
+    size_t start = 0;         // index of the oldest update in the cyclic buffer
 
-    while (k < max_iter && grad_norm > epsilon) {
-        // --- Two-loop recursion to compute search direction ---
-        // Allocate temporary vector q and copy grad into it.
+    size_t iter;
+    for (iter = 0; iter < max_iter && grad_norm > tol; iter++) {
+        // Save current state.
+        copy_vector(x, x_prev, n);
+        copy_vector(grad, grad_prev, n);
+
+        // --- Two-Loop Recursion ---
         double *q = (double *)malloc(n * sizeof(double));
-        for (size_t i = 0; i < n; i++) {
-            q[i] = grad[i];
-        }
-        double *alpha = (double *)malloc(m * sizeof(double));
-
-        // Loop backward over stored history.
-        for (int i = history_count - 1; i >= 0; i--) {
-            double dot = 0.0;
+        copy_vector(grad, q, n);
+        int count = (history_count < m) ? history_count : m;
+        double *alpha = (double *)malloc(count * sizeof(double));
+        // Loop backward over history (most recent first).
+        for (int i = count - 1; i >= 0; i--) {
+            int index = (start + i) % m;
+            double dot = dot_product(updates[index].s, q, n);
+            alpha[i] = updates[index].rho * dot;
             for (size_t j = 0; j < n; j++) {
-                dot += s_history[i][j] * q[j];
-            }
-            alpha[i] = rho[i] * dot;
-            for (size_t j = 0; j < n; j++) {
-                q[j] -= alpha[i] * y_history[i][j];
+                q[j] -= alpha[i] * updates[index].y[j];
             }
         }
-
-        // Scaling: Use H0 = (sᵀy)/(yᵀy) from last update, if available.
-        double scaling = 1.0;
-        if (history_count > 0) {
-            double sy = 0.0, yy = 0.0;
-            for (size_t j = 0; j < n; j++) {
-                sy += s_history[history_count-1][j] * y_history[history_count-1][j];
-                yy += y_history[history_count-1][j] * y_history[history_count-1][j];
-            }
-            if (yy > 0.0)
-                scaling = sy / yy;
+        // Scaling of initial Hessian (H0).
+        double H0 = 1.0;
+        if (count > 0) {
+            int index = (start + count - 1) % m;
+            double sy = dot_product(updates[index].s, updates[index].y, n);
+            double yy = dot_product(updates[index].y, updates[index].y, n);
+            if (yy > 0.0) H0 = sy / yy;
         }
         for (size_t i = 0; i < n; i++) {
-            q[i] *= scaling;
+            q[i] *= H0;
         }
-
-        // Loop forward over history.
-        for (int i = 0; i < history_count; i++) {
-            double dot = 0.0;
+        // Loop forward.
+        for (int i = 0; i < count; i++) {
+            int index = (start + i) % m;
+            double dot = dot_product(updates[index].y, q, n);
+            double beta = updates[index].rho * dot;
             for (size_t j = 0; j < n; j++) {
-                dot += y_history[i][j] * q[j];
-            }
-            double beta = rho[i] * dot;
-            for (size_t j = 0; j < n; j++) {
-                q[j] += s_history[i][j] * (alpha[i] - beta);
+                q[j] += updates[index].s[j] * (alpha[i] - beta);
             }
         }
         free(alpha);
-
-        // Set search direction d = -q.
-        double *direction = (double *)malloc(n * sizeof(double));
+        // Search direction is the negative of q.
         for (size_t i = 0; i < n; i++) {
-            direction[i] = -q[i];
+            q[i] = -q[i];
         }
-        free(q);
-
-        // Save current x and grad for history update.
-        vector_copy(x, prev_x, n);
-        vector_copy(grad, prev_grad, n);
-
-        // --- Line Search: Basic backtracking ---
+        // q now holds the search direction d.
+        
+        // --- Line Search using Armijo condition ---
         double step = 1.0;
         double *x_new = (double *)malloc(n * sizeof(double));
         double *grad_new = (double *)malloc(n * sizeof(double));
         double f_new;
         while (1) {
-            vector_add_scaled(x_new, x, step, direction, n);
+            // x_new = x + step * d
+            for (size_t i = 0; i < n; i++) {
+                x_new[i] = x[i] + step * q[i];
+            }
             f_new = obj(x_new, grad_new, n);
-            if (f_new < f) {
+            double gd = dot_product(grad, q, n);
+            if (f_new <= f + c1 * step * gd) {
                 break;
             }
-            step *= 0.5;
+            step *= tau;
             if (step < 1e-12) {
-                printf("[WARN] Line search failed at iteration %d\n", k);
+                printf("[WARN] Line search failed at iteration %zu\n", iter);
                 break;
             }
         }
-        // Update solution and objective.
-        vector_copy(x_new, x, n);
+        free(q);
+
+        // Update x, f, and grad.
+        copy_vector(x_new, x, n);
         f = f_new;
-        vector_copy(grad_new, grad, n);
+        copy_vector(grad_new, grad, n);
         free(x_new);
         free(grad_new);
-        free(direction);
 
-        // --- Update History ---
-        if (k > 0) {
-            // Compute s = x - prev_x and y = grad - prev_grad.
-            double *s = s_history[history_count % m];
-            double *y = y_history[history_count % m];
+        // --- Update LBFGS History (skip first iteration) ---
+        if (iter > 0) {
+            double *s = (double *)malloc(n * sizeof(double));
+            double *y = (double *)malloc(n * sizeof(double));
             for (size_t i = 0; i < n; i++) {
-                s[i] = x[i] - prev_x[i];
-                y[i] = grad[i] - prev_grad[i];
+                s[i] = x[i] - x_prev[i];
+                y[i] = grad[i] - grad_prev[i];
             }
-            double dot_sy = 0.0;
-            for (size_t i = 0; i < n; i++) {
-                dot_sy += s[i] * y[i];
+            double sy = dot_product(s, y, n);
+            if (sy == 0.0) sy = 1e-10;
+            double rho_val = 1.0 / sy;
+            int pos = history_count % m;
+            copy_vector(s, updates[pos].s, n);
+            copy_vector(y, updates[pos].y, n);
+            updates[pos].rho = rho_val;
+            if (history_count >= m) {
+                start = (history_count + 1) % m;
             }
-            if (dot_sy == 0.0) dot_sy = 1e-10;
-            rho[history_count % m] = 1.0 / dot_sy;
-            if (history_count < m) history_count++;
+            history_count++;
+            free(s);
+            free(y);
         }
-
-        grad_norm = vector_norm(grad, n);
-        printf("Iteration %d: f = %.10f, ||grad|| = %.10e, step = %.3e\n", k+1, f, grad_norm, step);
-        k++;
+        
+        grad_norm = sqrt(dot_product(grad, grad, n));
+        printf("Iteration %zu: f = %.10f, ||grad|| = %.10e, step = %.3e\n", iter+1, f, grad_norm, step);
     }
-
-    // Free allocated memory.
-    free(grad);
-    free(prev_x);
-    free(prev_grad);
+    
+    // Free LBFGS update storage.
     for (size_t i = 0; i < m; i++) {
-        free(s_history[i]);
-        free(y_history[i]);
+        free(updates[i].s);
+        free(updates[i].y);
     }
-    free(s_history);
-    free(y_history);
-    free(rho);
-
-    return k;
+    free(updates);
+    free(grad);
+    free(grad_prev);
+    free(x_prev);
+    
+    return iter;
 }

@@ -1,69 +1,66 @@
 #!/usr/bin/env python3
 """
-Benchmarking SciPy's L-BFGS on the same sparse quadratic objective.
-The objective: f(x) = 0.5 * sum_{i in S} (x[i]-1)^2, where S is a random subset.
+Benchmarking SciPy's L-BFGS-B on the Rosenbrock function.
 """
-
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
 import time
 
-# Set dimension and sparsity.
-DIMENSION = 1000
-SPARSITY = 0.1  # fraction of indices that are active
-
-# Generate a random mask for sparsity.
-np.random.seed(42)
-mask = (np.random.rand(DIMENSION) < SPARSITY).astype(float)
+DIMENSION = 100  # Must be even
 
 
-def objective(x):
-    # Compute only for active indices.
-    diff = x - 1.0
-    f = 0.5 * np.sum(mask * diff * diff)
+def rosenbrock(x):
+    f = 0.0
+    for i in range(0, len(x), 2):
+        x1 = x[i]
+        x2 = x[i + 1]
+        f += (1 - x1) ** 2 + 100 * (x2 - x1**2) ** 2
     return f
 
 
-def grad(x):
-    diff = x - 1.0
-    g = mask * diff
-    return g
+def rosenbrock_grad(x):
+    grad = np.zeros_like(x)
+    for i in range(0, len(x), 2):
+        x1 = x[i]
+        x2 = x[i + 1]
+        grad[i] = -2 * (1 - x1) - 400 * x1 * (x2 - x1**2)
+        grad[i + 1] = 200 * (x2 - x1**2)
+    return grad
 
 
-# Callback to record progress.
-history = {"f": []}
+history = []
 
 
 def callback(xk):
-    f_val = objective(xk)
-    history["f"].append(f_val)
+    history.append(rosenbrock(xk))
 
 
 def main():
-    x0 = np.zeros(DIMENSION)
-    start_time = time.time()
+    x0 = np.empty(DIMENSION)
+    for i in range(0, DIMENSION, 2):
+        x0[i] = -1.2
+        x0[i + 1] = 1.0
+
+    start = time.time()
     res = opt.minimize(
-        objective,
+        rosenbrock,
         x0,
-        jac=grad,
+        jac=rosenbrock_grad,
         method="L-BFGS-B",
         callback=callback,
         options={"disp": True, "maxiter": 100},
     )
-    elapsed = time.time() - start_time
+    elapsed = time.time() - start
     print(
-        "SciPy L-BFGS finished in {:.4f} seconds, f(x) = {:.6f}".format(
-            elapsed, res.fun
-        )
+        "SciPy L-BFGS-B finished in {:.4f} seconds, f = {:.6f}".format(elapsed, res.fun)
     )
 
-    # Plot convergence.
     plt.figure()
-    plt.plot(history["f"], marker="o")
+    plt.plot(history, marker="o")
     plt.xlabel("Iteration")
-    plt.ylabel("Objective Function Value")
-    plt.title("SciPy L-BFGS Convergence")
+    plt.ylabel("Objective value")
+    plt.title("SciPy L-BFGS-B Convergence on Rosenbrock")
     plt.grid(True)
     plt.show()
 
