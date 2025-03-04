@@ -22,12 +22,8 @@ This project implements a matrix-free L-BFGS optimization algorithm in C, specif
     - SciPy Implementation: 0.0101 seconds
 - Speedup: ~32x faster than Python baseline.
 
-### Convergence Plots:
-#### C L-BFGS Convergence
-<img src="c_lbfgs_convergence.png" width="400" />
-
-#### SciPy L-BFGS Convergence
-<img src="python_lbfgs_convergence.png" width="400" />
+### L-BFGS ConvergenceConvergence Plots:
+<img src="c_lbfgs_convergence.png" width="400" />     <img src="python_lbfgs_convergence.png" width="400" />
 
 These plots demonstrate the objective function reduction over iterations for both implementations.
 
