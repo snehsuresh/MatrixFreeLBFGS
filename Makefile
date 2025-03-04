@@ -1,20 +1,12 @@
-# Makefile for building the L-BFGS optimizer in C
-
-CC = gcc
+CC = clang
 CFLAGS = -O2 -std=c99 -Wall
 
-# Uncomment the following lines if using clang with OpenMP support
-# For clang, you may need: 
-# CFLAGS += -Xpreprocessor -fopenmp
-# LDFLAGS += -lomp
-
-# For GCC with OpenMP, add:
-CFLAGS += -fopenmp
-LDFLAGS += -fopenmp
+# Explicitly specify libomp location (manual override)
+CFLAGS += -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
+LDFLAGS += -L/opt/homebrew/opt/libomp/lib -lomp
 
 SRC = src/main.c src/optimizer.c src/objective.c
 OBJ = $(SRC:.c=.o)
-
 TARGET = lbfgs_optimizer
 
 all: $(TARGET)

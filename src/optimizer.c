@@ -136,6 +136,11 @@ size_t lbfgs_optimize(double *x, size_t n, ObjectiveFunc obj, LBFGSParams params
     double f_val;
     double *grad = (double *)malloc(n * sizeof(double));
     f_val = obj(x, grad, n);
+    printf("[DEBUG] Initial objective value = %.10f\n", f_val);
+    printf("[DEBUG] Initial gradient norm = %.10e\n", norm(grad, n));
+    for (size_t i = 0; i < 10; i++) {
+        printf("[DEBUG] grad[%zu] = %.5f\n", i, grad[i]);
+    }
 
     // Allocate history arrays for s and y vectors.
     double **s_list = (double **)malloc(params.m * sizeof(double *));

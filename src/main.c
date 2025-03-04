@@ -8,8 +8,8 @@
 
 int main() {
     // Seed random number generator.
-    srand((unsigned int)time(NULL));
-
+    srand(42);
+    init_sparse_mask(DIMENSION, 0.1);
     // Allocate initial guess x.
     double *x = (double *)malloc(DIMENSION * sizeof(double));
     // Initialize x to zeros.
@@ -18,7 +18,7 @@ int main() {
     }
 
     // Initialize sparse mask with 10% active entries.
-    init_sparse_mask(DIMENSION, 0.1);
+ 
 
     // Set L-BFGS parameters.
     LBFGSParams params;
